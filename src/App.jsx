@@ -2,36 +2,36 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const PRESETS = {
-  VOO: { name: 'VOO', fullName: 'S&P500連動', growth: 10, dividend: 1.2, currency: 'USD', accent: '#F59E0B', category: '米国ETF' },
-  VTI: { name: 'VTI', fullName: '米国全株式', growth: 10, dividend: 1.3, currency: 'USD', accent: '#EAB308', category: '米国ETF' },
-  VT: { name: 'VT', fullName: '全世界株式', growth: 8, dividend: 1.8, currency: 'USD', accent: '#06B6D4', category: '米国ETF' },
-  QQQ: { name: 'QQQ', fullName: 'NASDAQ100', growth: 14, dividend: 0.5, currency: 'USD', accent: '#EC4899', category: '米国ETF' },
-  VYM: { name: 'VYM', fullName: '米国高配当ETF', growth: 6, dividend: 3, currency: 'USD', accent: '#6366F1', category: '米国ETF' },
-  HDV: { name: 'HDV', fullName: '米国高配当ETF(iShares)', growth: 4, dividend: 3.8, currency: 'USD', accent: '#A78BFA', category: '米国ETF' },
-  SPYD: { name: 'SPYD', fullName: 'S&P500高配当ETF', growth: 5, dividend: 4.3, currency: 'USD', accent: '#F472B6', category: '米国ETF' },
-  SCHD: { name: 'SCHD', fullName: '米国増配ETF', growth: 8, dividend: 3.5, currency: 'USD', accent: '#10B981', category: '米国ETF' },
-  VIG: { name: 'VIG', fullName: '米国連続増配ETF', growth: 9, dividend: 1.8, currency: 'USD', accent: '#0EA5E9', category: '米国ETF' },
-  JEPQ: { name: 'JEPQ', fullName: 'JPナスダック高配', growth: 3, dividend: 10, currency: 'USD', accent: '#B91C1C', category: '米国ETF' },
-  JEPI: { name: 'JEPI', fullName: 'JP高配当カバコ', growth: 2, dividend: 8, currency: 'USD', accent: '#DC2626', category: '米国ETF' },
-  AGG: { name: 'AGG', fullName: '米国総合債券', growth: 0.5, dividend: 3.5, currency: 'USD', accent: '#64748B', category: '債券・REIT' },
-  VNQ: { name: 'VNQ', fullName: '米国REIT', growth: 4, dividend: 4, currency: 'USD', accent: '#84CC16', category: '債券・REIT' },
-  TLT: { name: 'TLT', fullName: '米国超長期国債', growth: -1, dividend: 4, currency: 'USD', accent: '#94A3B8', category: '債券・REIT' },
-  AAPL: { name: 'AAPL', fullName: 'Apple', growth: 22, dividend: 0.5, currency: 'USD', accent: '#A1A1AA', category: '米国個別株' },
-  MSFT: { name: 'MSFT', fullName: 'Microsoft', growth: 24, dividend: 0.8, currency: 'USD', accent: '#3B82F6', category: '米国個別株' },
-  NVDA: { name: 'NVDA', fullName: 'NVIDIA', growth: 40, dividend: 0.03, currency: 'USD', accent: '#22C55E', category: '米国個別株' },
-  TSLA: { name: 'TSLA', fullName: 'Tesla', growth: 30, dividend: 0, currency: 'USD', accent: '#EF4444', category: '米国個別株' },
-  KO: { name: 'KO', fullName: 'コカ・コーラ', growth: 5, dividend: 3, currency: 'USD', accent: '#DC2626', category: '米国個別株' },
-  SP500: { name: 'S&P500', fullName: 'eMAXIS Slim S&P500', growth: 10, dividend: 0, currency: 'JPY', accent: '#F97316', category: '日本投信' },
-  ALLCOUNTRY: { name: 'オルカン', fullName: '全世界株式 (eMAXIS Slim)', growth: 8, dividend: 0, currency: 'JPY', accent: '#14B8A6', category: '日本投信' },
-  NASDAQ: { name: 'NASDAQ100', fullName: 'NASDAQ100連動', growth: 14, dividend: 0, currency: 'JPY', accent: '#D946EF', category: '日本投信' },
-  DOW: { name: 'ダウ平均', fullName: 'NYダウ連動', growth: 9, dividend: 0, currency: 'JPY', accent: '#8B5CF6', category: '日本投信' },
-  TOPIX: { name: 'TOPIX', fullName: '東証株価指数', growth: 7, dividend: 0, currency: 'JPY', accent: '#BE123C', category: '日本投信' },
-  N225: { name: '日経225', fullName: '日経平均連動', growth: 8, dividend: 0, currency: 'JPY', accent: '#E11D48', category: '日本投信' },
-  IFREELEV: { name: 'iFレバNAS', fullName: 'iFreeレバNASDAQ100(2倍)', growth: 20, dividend: 0, currency: 'JPY', accent: '#7C3AED', category: '日本投信' },
+  VOO: { name: 'VOO', fullName: 'S&P500連動', growth: 10, dividend: 1.2, currency: 'USD', accent: '#F59E0B', category: '米国ETF', fxLinked: true },
+  VTI: { name: 'VTI', fullName: '米国全株式', growth: 10, dividend: 1.3, currency: 'USD', accent: '#EAB308', category: '米国ETF', fxLinked: true },
+  VT: { name: 'VT', fullName: '全世界株式', growth: 8, dividend: 1.8, currency: 'USD', accent: '#06B6D4', category: '米国ETF', fxLinked: true },
+  QQQ: { name: 'QQQ', fullName: 'NASDAQ100', growth: 14, dividend: 0.5, currency: 'USD', accent: '#EC4899', category: '米国ETF', fxLinked: true },
+  VYM: { name: 'VYM', fullName: '米国高配当ETF', growth: 6, dividend: 3, currency: 'USD', accent: '#6366F1', category: '米国ETF', fxLinked: true },
+  HDV: { name: 'HDV', fullName: '米国高配当ETF(iShares)', growth: 4, dividend: 3.8, currency: 'USD', accent: '#A78BFA', category: '米国ETF', fxLinked: true },
+  SPYD: { name: 'SPYD', fullName: 'S&P500高配当ETF', growth: 5, dividend: 4.3, currency: 'USD', accent: '#F472B6', category: '米国ETF', fxLinked: true },
+  SCHD: { name: 'SCHD', fullName: '米国増配ETF', growth: 8, dividend: 3.5, currency: 'USD', accent: '#10B981', category: '米国ETF', fxLinked: true },
+  VIG: { name: 'VIG', fullName: '米国連続増配ETF', growth: 9, dividend: 1.8, currency: 'USD', accent: '#0EA5E9', category: '米国ETF', fxLinked: true },
+  JEPQ: { name: 'JEPQ', fullName: 'JPナスダック高配', growth: 3, dividend: 10, currency: 'USD', accent: '#B91C1C', category: '米国ETF', fxLinked: true },
+  JEPI: { name: 'JEPI', fullName: 'JP高配当カバコ', growth: 2, dividend: 8, currency: 'USD', accent: '#DC2626', category: '米国ETF', fxLinked: true },
+  AGG: { name: 'AGG', fullName: '米国総合債券', growth: 0.5, dividend: 3.5, currency: 'USD', accent: '#64748B', category: '債券・REIT', fxLinked: true },
+  VNQ: { name: 'VNQ', fullName: '米国REIT', growth: 4, dividend: 4, currency: 'USD', accent: '#84CC16', category: '債券・REIT', fxLinked: true },
+  TLT: { name: 'TLT', fullName: '米国超長期国債', growth: -1, dividend: 4, currency: 'USD', accent: '#94A3B8', category: '債券・REIT', fxLinked: true },
+  AAPL: { name: 'AAPL', fullName: 'Apple', growth: 22, dividend: 0.5, currency: 'USD', accent: '#A1A1AA', category: '米国個別株', fxLinked: true },
+  MSFT: { name: 'MSFT', fullName: 'Microsoft', growth: 24, dividend: 0.8, currency: 'USD', accent: '#3B82F6', category: '米国個別株', fxLinked: true },
+  NVDA: { name: 'NVDA', fullName: 'NVIDIA', growth: 40, dividend: 0.03, currency: 'USD', accent: '#22C55E', category: '米国個別株', fxLinked: true },
+  TSLA: { name: 'TSLA', fullName: 'Tesla', growth: 30, dividend: 0, currency: 'USD', accent: '#EF4444', category: '米国個別株', fxLinked: true },
+  KO: { name: 'KO', fullName: 'コカ・コーラ', growth: 5, dividend: 3, currency: 'USD', accent: '#DC2626', category: '米国個別株', fxLinked: true },
+  SP500: { name: 'S&P500', fullName: 'eMAXIS Slim S&P500', growth: 10, dividend: 0, currency: 'JPY', accent: '#F97316', category: '日本投信', fxLinked: true },
+  ALLCOUNTRY: { name: 'オルカン', fullName: '全世界株式 (eMAXIS Slim)', growth: 8, dividend: 0, currency: 'JPY', accent: '#14B8A6', category: '日本投信', fxLinked: true },
+  NASDAQ: { name: 'NASDAQ100', fullName: 'NASDAQ100連動', growth: 14, dividend: 0, currency: 'JPY', accent: '#D946EF', category: '日本投信', fxLinked: true },
+  DOW: { name: 'ダウ平均', fullName: 'NYダウ連動', growth: 9, dividend: 0, currency: 'JPY', accent: '#8B5CF6', category: '日本投信', fxLinked: true },
+  TOPIX: { name: 'TOPIX', fullName: '東証株価指数', growth: 7, dividend: 0, currency: 'JPY', accent: '#BE123C', category: '日本投信', fxLinked: false },
+  N225: { name: '日経225', fullName: '日経平均連動', growth: 8, dividend: 0, currency: 'JPY', accent: '#E11D48', category: '日本投信', fxLinked: false },
+  IFREELEV: { name: 'iFレバNAS', fullName: 'iFreeレバNASDAQ100(2倍)', growth: 20, dividend: 0, currency: 'JPY', accent: '#7C3AED', category: '日本投信', fxLinked: true },
 };
 
 const DEFAULT_HOLDINGS = [
-  { id: 1, ticker: 'SP500', name: 'S&P500', fullName: 'eMAXIS Slim S&P500', amount: 1000000, monthly: 0, growth: 10, dividend: 0, currency: 'JPY', accent: '#F97316', tax: 20 },
+  { id: 1, ticker: 'SP500', name: 'S&P500', fullName: 'eMAXIS Slim S&P500', amount: 1000000, monthly: 0, growth: 10, dividend: 0, currency: 'JPY', accent: '#F97316', tax: 20, fxLinked: true },
 ];
 
 const STORAGE_KEY = 'portfolio_state_v2';
@@ -134,7 +134,14 @@ export default function App() {
         if (raw) {
           const data = JSON.parse(raw);
           if (data.holdings && data.holdings.length > 0) {
-            const migrated = data.holdings.map(h => Object.assign({ monthly: 0, tax: 20 }, h));
+            const migrated = data.holdings.map(h => {
+              const defaults = { monthly: 0, tax: 20 };
+              // fxLinkedがない古いデータは、USD銘柄だけtrueにマイグレーション
+              if (h.fxLinked === undefined) {
+                defaults.fxLinked = h.currency === 'USD';
+              }
+              return Object.assign({}, defaults, h);
+            });
             setHoldings(migrated);
           }
           if (typeof data.years === 'number') setYears(data.years);
@@ -178,6 +185,7 @@ export default function App() {
       currency: preset.currency,
       accent: preset.accent,
       tax: 20,
+      fxLinked: preset.fxLinked,
     }]);
     setShowAddModal(false);
   };
@@ -187,7 +195,7 @@ export default function App() {
     const id = Date.now();
     setHoldings([...holdings, {
       id, ticker: 'CUSTOM', name: 'カスタム', fullName: '自由入力', amount: 1000000, monthly: 0,
-      growth: 7, dividend: 0, currency: 'JPY', accent: colors[holdings.length % colors.length], tax: 20,
+      growth: 7, dividend: 0, currency: 'JPY', accent: colors[holdings.length % colors.length], tax: 20, fxLinked: false,
     }]);
     setEditingId(id);
     setShowAddModal(false);
@@ -238,16 +246,32 @@ export default function App() {
           const contributionFV = (monthlyRate > 0 && months > 0)
             ? monthly * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate)
             : monthly * months;
+          // 銘柄ネイティブ通貨ベースの将来価値
           const futureValueBeforeTax = principalGrowth + contributionFV;
-          // 最終年の売却益に課税(元本=投入額との差額に税率)
           const totalInvestedLocal = h.amount + monthly * months;
           const capitalGain = Math.max(0, futureValueBeforeTax - totalInvestedLocal);
           const capitalGainTax = capitalGain * tax;
           const futureValue = futureValueBeforeTax - capitalGainTax;
 
           const rateAtYear = usdJpy + ((futureUsdJpy - usdJpy) * y / Math.max(years, 1));
-          const valueInJPY = h.currency === 'USD' ? futureValue * rateAtYear : futureValue;
-          const valueInUSD = h.currency === 'USD' ? futureValue : futureValue / rateAtYear;
+          // 為替連動: USD銘柄は当然ドル建て。JPY建てでも fxLinked=true なら為替影響を受ける
+          let valueInJPY, valueInUSD;
+          if (h.currency === 'USD') {
+            // 元々ドル建て: そのまま為替でJPYに変換
+            valueInJPY = futureValue * rateAtYear;
+            valueInUSD = futureValue;
+          } else if (h.fxLinked) {
+            // 円建てだが為替連動: 成長はドル建てとして計算し、為替変動を反映
+            // 現在の基準価額をドル換算(現在レートで)→ 将来はその成長+為替変動を反映
+            const futureValueInUSD = futureValue / usdJpy;
+            valueInJPY = futureValueInUSD * rateAtYear;
+            valueInUSD = futureValueInUSD;
+          } else {
+            // 純粋な円建て(日経225等): 為替影響なし
+            valueInJPY = futureValue;
+            valueInUSD = futureValue / rateAtYear;
+          }
+
           const inflationFactor = Math.pow(1 + inflation / 100, y);
           const displayValue = displayCurrency === 'JPY'
             ? (showInflationAdjusted ? valueInJPY / inflationFactor : valueInJPY)
@@ -767,6 +791,31 @@ export default function App() {
                         配当は毎年、売却益は{years}年後に課税されます
                       </div>
                     </EditRow>
+                    <EditRow label="為替(ドル円)の影響">
+                      <label style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '8px', 
+                        padding: '8px 10px',
+                        background: '#fff',
+                        border: '0.5px solid rgba(0,0,0,0.15)',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                      }}>
+                        <input 
+                          type="checkbox" 
+                          checked={h.fxLinked || false} 
+                          onChange={e => updateHolding(h.id, 'fxLinked', e.target.checked)} 
+                        />
+                        <span>この銘柄は為替(ドル円)の影響を受ける</span>
+                      </label>
+                      <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                        {h.fxLinked 
+                          ? '米国株や米国株投信は通常ON。円高になると円建て評価額が下がります' 
+                          : '日経225・TOPIX等の純国内資産はOFF。日本円のみで完結'}
+                      </div>
+                    </EditRow>
                     <button 
                       onClick={() => { removeHolding(h.id); setEditingId(null); }}
                       style={{
@@ -957,7 +1006,7 @@ export default function App() {
         lineHeight: 1.6, marginTop: '24px',
         paddingTop: '16px', borderTop: '0.5px solid rgba(0,0,0,0.08)',
       }}>
-        ※ 過去平均ベースの試算であり、将来の運用成果を保証するものではありません。税金は銘柄ごとの税率設定(デフォルト20%、NISAなら0%)に基づき、配当は毎年税引き後再投資、売却益は最終年に課税する前提で計算しています。取り崩しモードでは、ポートフォリオ全体の加重平均リターンで運用しつつ年初に引き出す前提で計算しています。
+        ※ 過去平均ベースの試算であり、将来の運用成果を保証するものではありません。税金は銘柄ごとの税率設定(デフォルト20%、NISAなら0%)に基づき、配当は毎年税引き後再投資、売却益は最終年に課税する前提で計算しています。「為替連動」をONにした銘柄は、原資産をドル建てとみなしてドル円変動を反映します(eMAXIS Slim S&P500等、為替ヘッジなし投信は通常ON)。取り崩しモードでは、ポートフォリオ全体の加重平均リターンで運用しつつ年初に引き出す前提で計算しています。
       </div>
     </div>
   );
