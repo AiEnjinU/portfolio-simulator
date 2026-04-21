@@ -1,0 +1,10 @@
+body {
+  margin: 0;
+  background: #fff;
+  color: #0a0a0a;
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
