@@ -2,17 +2,17 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const PRESETS = {
-  VYM: { name: 'VYM', fullName: '米国高配当ETF', growth: 6, dividend: 3, currency: 'USD', accent: '#6366F1', category: '米国ETF' },
-  SCHD: { name: 'SCHD', fullName: '米国増配ETF', growth: 8, dividend: 3.5, currency: 'USD', accent: '#10B981', category: '米国ETF' },
-  VIG: { name: 'VIG', fullName: '米国連続増配ETF', growth: 9, dividend: 1.8, currency: 'USD', accent: '#0EA5E9', category: '米国ETF' },
   VOO: { name: 'VOO', fullName: 'S&P500連動', growth: 10, dividend: 1.2, currency: 'USD', accent: '#F59E0B', category: '米国ETF' },
   VTI: { name: 'VTI', fullName: '米国全株式', growth: 10, dividend: 1.3, currency: 'USD', accent: '#EAB308', category: '米国ETF' },
   VT: { name: 'VT', fullName: '全世界株式', growth: 8, dividend: 1.8, currency: 'USD', accent: '#06B6D4', category: '米国ETF' },
   QQQ: { name: 'QQQ', fullName: 'NASDAQ100', growth: 14, dividend: 0.5, currency: 'USD', accent: '#EC4899', category: '米国ETF' },
-  JEPI: { name: 'JEPI', fullName: 'JP高配当カバコ', growth: 2, dividend: 8, currency: 'USD', accent: '#DC2626', category: '米国ETF' },
-  JEPQ: { name: 'JEPQ', fullName: 'JPナスダック高配', growth: 3, dividend: 10, currency: 'USD', accent: '#B91C1C', category: '米国ETF' },
-  SPYD: { name: 'SPYD', fullName: 'S&P500高配当ETF', growth: 5, dividend: 4.3, currency: 'USD', accent: '#F472B6', category: '米国ETF' },
+  VYM: { name: 'VYM', fullName: '米国高配当ETF', growth: 6, dividend: 3, currency: 'USD', accent: '#6366F1', category: '米国ETF' },
   HDV: { name: 'HDV', fullName: '米国高配当ETF(iShares)', growth: 4, dividend: 3.8, currency: 'USD', accent: '#A78BFA', category: '米国ETF' },
+  SPYD: { name: 'SPYD', fullName: 'S&P500高配当ETF', growth: 5, dividend: 4.3, currency: 'USD', accent: '#F472B6', category: '米国ETF' },
+  SCHD: { name: 'SCHD', fullName: '米国増配ETF', growth: 8, dividend: 3.5, currency: 'USD', accent: '#10B981', category: '米国ETF' },
+  VIG: { name: 'VIG', fullName: '米国連続増配ETF', growth: 9, dividend: 1.8, currency: 'USD', accent: '#0EA5E9', category: '米国ETF' },
+  JEPQ: { name: 'JEPQ', fullName: 'JPナスダック高配', growth: 3, dividend: 10, currency: 'USD', accent: '#B91C1C', category: '米国ETF' },
+  JEPI: { name: 'JEPI', fullName: 'JP高配当カバコ', growth: 2, dividend: 8, currency: 'USD', accent: '#DC2626', category: '米国ETF' },
   AGG: { name: 'AGG', fullName: '米国総合債券', growth: 0.5, dividend: 3.5, currency: 'USD', accent: '#64748B', category: '債券・REIT' },
   VNQ: { name: 'VNQ', fullName: '米国REIT', growth: 4, dividend: 4, currency: 'USD', accent: '#84CC16', category: '債券・REIT' },
   TLT: { name: 'TLT', fullName: '米国超長期国債', growth: -1, dividend: 4, currency: 'USD', accent: '#94A3B8', category: '債券・REIT' },
@@ -31,7 +31,7 @@ const PRESETS = {
 };
 
 const DEFAULT_HOLDINGS = [
-  { id: 1, ticker: 'SP500', name: 'S&P500', fullName: 'eMAXIS Slim S&P500', amount: 1000000, monthly: 0, growth: 10, dividend: 0, currency: 'JPY', accent: '#F97316' },
+  { id: 1, ticker: 'SP500', name: 'S&P500', fullName: 'eMAXIS Slim S&P500', amount: 1000000, monthly: 0, growth: 10, dividend: 0, currency: 'JPY', accent: '#F97316', tax: 20 },
 ];
 
 const STORAGE_KEY = 'portfolio_state_v2';
@@ -133,7 +133,7 @@ export default function App() {
         if (raw) {
           const data = JSON.parse(raw);
           if (data.holdings && data.holdings.length > 0) {
-            const migrated = data.holdings.map(h => Object.assign({ monthly: 0 }, h));
+            const migrated = data.holdings.map(h => Object.assign({ monthly: 0, tax: 20 }, h));
             setHoldings(migrated);
           }
           if (typeof data.years === 'number') setYears(data.years);
@@ -175,6 +175,7 @@ export default function App() {
       dividend: preset.dividend,
       currency: preset.currency,
       accent: preset.accent,
+      tax: 20,
     }]);
     setShowAddModal(false);
   };
@@ -184,7 +185,7 @@ export default function App() {
     const id = Date.now();
     setHoldings([...holdings, {
       id, ticker: 'CUSTOM', name: 'カスタム', fullName: '自由入力', amount: 1000000, monthly: 0,
-      growth: 7, dividend: 0, currency: 'JPY', accent: colors[holdings.length % colors.length],
+      growth: 7, dividend: 0, currency: 'JPY', accent: colors[holdings.length % colors.length], tax: 20,
     }]);
     setEditingId(id);
     setShowAddModal(false);
@@ -224,7 +225,10 @@ export default function App() {
         let totalJPYReal = 0;
 
         holdings.forEach(h => {
-          const annualRate = (h.growth + (reinvest ? h.dividend : 0)) / 100;
+          const tax = (h.tax || 0) / 100;
+          // 配当は税引き後で再投資される想定
+          const effectiveDividend = reinvest ? h.dividend * (1 - tax) : 0;
+          const annualRate = (h.growth + effectiveDividend) / 100;
           const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
           const months = y * 12;
           const principalGrowth = h.amount * Math.pow(1 + annualRate, y);
@@ -232,7 +236,12 @@ export default function App() {
           const contributionFV = (monthlyRate > 0 && months > 0)
             ? monthly * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate)
             : monthly * months;
-          const futureValue = principalGrowth + contributionFV;
+          const futureValueBeforeTax = principalGrowth + contributionFV;
+          // 最終年の売却益に課税(元本=投入額との差額に税率)
+          const totalInvestedLocal = h.amount + monthly * months;
+          const capitalGain = Math.max(0, futureValueBeforeTax - totalInvestedLocal);
+          const capitalGainTax = capitalGain * tax;
+          const futureValue = futureValueBeforeTax - capitalGainTax;
 
           const rateAtYear = usdJpy + ((futureUsdJpy - usdJpy) * y / Math.max(years, 1));
           const valueInJPY = h.currency === 'USD' ? futureValue * rateAtYear : futureValue;
@@ -263,7 +272,9 @@ export default function App() {
       }, 0);
       const weightedRate = totalInitialJPY > 0 ? holdings.reduce((sum, h) => {
         const jpy = h.currency === 'USD' ? h.amount * usdJpy : h.amount;
-        const rate = (h.growth + (reinvest ? h.dividend : 0)) / 100;
+        const tax = (h.tax || 0) / 100;
+        const effectiveDividend = reinvest ? h.dividend * (1 - tax) : 0;
+        const rate = (h.growth + effectiveDividend) / 100;
         return sum + (jpy / totalInitialJPY) * rate;
       }, 0) : 0;
 
@@ -587,7 +598,19 @@ export default function App() {
                     fontSize: '10px', fontWeight: 700, flexShrink: 0,
                   }}>{h.name.slice(0, 4)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 500 }}>{h.name}</div>
+                    <div style={{ fontSize: '14px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      {h.name}
+                      {(h.tax || 0) === 0 && (
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          background: '#10B981',
+                          color: '#fff',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                        }}>NISA</span>
+                      )}
+                    </div>
                     <div style={{ fontSize: '12px', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {h.fullName} · {h.growth}%
                       {h.dividend > 0 ? ' + 配' + h.dividend + '%' : ''}
@@ -652,6 +675,50 @@ export default function App() {
                         <input type="number" value={h.dividend} step="0.1" onChange={e => updateHolding(h.id, 'dividend', +e.target.value || 0)} style={webInputStyle} />
                       </EditRow>
                     </div>
+                    <EditRow label="税率 (%)">
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <input 
+                          type="number" 
+                          value={h.tax || 0} 
+                          step="1"
+                          min="0"
+                          max="100"
+                          onChange={e => updateHolding(h.id, 'tax', +e.target.value || 0)} 
+                          style={Object.assign({}, webInputStyle, { flex: 1 })} 
+                        />
+                        <button
+                          onClick={() => updateHolding(h.id, 'tax', 0)}
+                          style={{
+                            padding: '8px 12px',
+                            background: (h.tax || 0) === 0 ? '#10B981' : 'transparent',
+                            color: (h.tax || 0) === 0 ? '#fff' : '#10B981',
+                            border: '0.5px solid #10B981',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >NISA</button>
+                        <button
+                          onClick={() => updateHolding(h.id, 'tax', 20)}
+                          style={{
+                            padding: '8px 12px',
+                            background: (h.tax || 0) === 20 ? '#0a0a0a' : 'transparent',
+                            color: (h.tax || 0) === 20 ? '#fff' : '#0a0a0a',
+                            border: '0.5px solid rgba(0,0,0,0.2)',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >課税20%</button>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                        配当は毎年、売却益は{years}年後に課税されます
+                      </div>
+                    </EditRow>
                     <button 
                       onClick={() => { removeHolding(h.id); setEditingId(null); }}
                       style={{
@@ -829,7 +896,7 @@ export default function App() {
         lineHeight: 1.6, marginTop: '24px',
         paddingTop: '16px', borderTop: '0.5px solid rgba(0,0,0,0.08)',
       }}>
-        ※ 過去平均ベースの試算であり、将来の運用成果を保証するものではありません。税金は考慮していません。取り崩しモードでは、ポートフォリオ全体の加重平均リターンで運用しつつ年初に引き出す前提で計算しています。
+        ※ 過去平均ベースの試算であり、将来の運用成果を保証するものではありません。税金は銘柄ごとの税率設定(デフォルト20%、NISAなら0%)に基づき、配当は毎年税引き後再投資、売却益は最終年に課税する前提で計算しています。取り崩しモードでは、ポートフォリオ全体の加重平均リターンで運用しつつ年初に引き出す前提で計算しています。
       </div>
     </div>
   );
