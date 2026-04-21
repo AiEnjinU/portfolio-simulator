@@ -49,63 +49,62 @@ const webInputStyle = {
   boxSizing: 'border-box',
 };
 
-function Card({ children, style }) {
+function Card(props) {
+  const merged = Object.assign({
+    padding: '16px',
+    background: '#f4f4f2',
+    borderRadius: '12px',
+  }, props.style || {});
+  return <div style={merged}>{props.children}</div>;
+}
+
+function Label(props) {
+  return <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>{props.children}</div>;
+}
+
+function ValueText(props) {
+  return <span style={{ fontSize: '14px', fontWeight: 500, minWidth: '44px', textAlign: 'right' }}>{props.children}</span>;
+}
+
+function SliderRow(props) {
+  return <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>{props.children}</div>;
+}
+
+function TabButton(props) {
   return (
-    <div style={Object.assign({
-      padding: '16px',
-      background: '#f4f4f2',
-      borderRadius: '12px',
-    }, style || {})}>{children}</div>
-  );
-}
-
-function Label({ children }) {
-  return <div style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>{children}</div>;
-}
-
-function Value({ children }) {
-  return <span style={{ fontSize: '14px', fontWeight: 500, minWidth: '44px', textAlign: 'right' }}>{children}</span>;
-}
-
-function SliderRow({ children }) {
-  return <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>{children}</div>;
-}
-
-function TabButton({ active, onClick, children }) {
-  return (
-    <button 
-      onClick={onClick}
+    <button
+      onClick={props.onClick}
       style={{
         flex: 1,
         padding: '10px',
-        background: active ? '#fff' : 'transparent',
+        background: props.active ? '#fff' : 'transparent',
         color: '#0a0a0a',
         border: 'none',
         borderRadius: '8px',
         fontSize: '14px',
-        fontWeight: active ? 500 : 400,
+        fontWeight: props.active ? 500 : 400,
         cursor: 'pointer',
         transition: 'background 0.15s',
-        boxShadow: active ? '0 1px 2px rgba(0,0,0,0.04)' : 'none',
+        boxShadow: props.active ? '0 1px 2px rgba(0,0,0,0.04)' : 'none',
       }}
-    >{children}</button>
+    >{props.children}</button>
   );
 }
 
-function EditRow({ label, children }) {
+function EditRow(props) {
   return (
     <div>
-      <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>{label}</div>
-      {children}
+      <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>{props.label}</div>
+      {props.children}
     </div>
   );
 }
 
-function Stat({ label, value, color }) {
+function Stat(props) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '0.5px dashed rgba(0,0,0,0.08)' }}>
-      <span>{label}</span>
-      <span style={{ fontWeight: 500, color: color || '#0a0a0a' }}>{value}</span>
+      <span>{props.label}</span>
+      <span style={{ fontWeight: 500, color: props.color || '#0a0a0a' }}>{props.value}</span>
     </div>
   );
 }
@@ -137,7 +136,6 @@ export default function App() {
           if (data.holdings && data.holdings.length > 0) {
             const migrated = data.holdings.map(h => {
               const defaults = { monthly: 0, monthlyYears: 0, tax: 20 };
-              // fxLinkedがない古いデータは、USD銘柄だけtrueにマイグレーション
               if (h.fxLinked === undefined) {
                 defaults.fxLinked = h.currency === 'USD';
               }
@@ -225,17 +223,16 @@ export default function App() {
   }, [holdings, usdJpy, displayCurrency]);
 
   const totalContributions = useMemo(() => {
-    // 各銘柄の積立期間を考慮した投入総額を計算
     let total = initialTotal;
     holdings.forEach(h => {
       const m = h.monthly || 0;
       if (m === 0) return;
-      const contribYears = (h.monthlyYears && h.monthlyYears > 0) 
-        ? Math.min(h.monthlyYears, years) 
+      const contribYears = (h.monthlyYears && h.monthlyYears > 0)
+        ? Math.min(h.monthlyYears, years)
         : years;
       const monthlyJPY = h.currency === 'USD' ? m * usdJpy : m;
-      const monthlyInDisplay = displayCurrency === 'JPY' 
-        ? monthlyJPY 
+      const monthlyInDisplay = displayCurrency === 'JPY'
+        ? monthlyJPY
         : monthlyJPY / usdJpy;
       total += monthlyInDisplay * 12 * contribYears;
     });
@@ -253,39 +250,28 @@ export default function App() {
 
         holdings.forEach(h => {
           const tax = (h.tax || 0) / 100;
-          // 配当は税引き後で再投資される想定
           const effectiveDividend = reinvest ? h.dividend * (1 - tax) : 0;
           const annualRate = (h.growth + effectiveDividend) / 100;
           const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
 
-          // 積立期間: 0なら期間全体、それ以外なら指定年数(ただし年数の上限はy)
           const monthly = h.monthly || 0;
-          // contribYears: この銘柄が積立する最大年数(0の場合は期間全体)
           const contribMaxYears = (h.monthlyYears && h.monthlyYears > 0) ? h.monthlyYears : years;
-          // 現在の年yにおける、実際に積み立てた年数
           const activeContribYears = Math.min(y, contribMaxYears);
           const activeContribMonths = activeContribYears * 12;
 
-          // 元本の成長
           const principalGrowth = h.amount * Math.pow(1 + annualRate, y);
-          
-          // 月次積立のFV計算:
-          // 積立中の月数 = activeContribMonths
-          // その後放置期間 = y - activeContribYears 年
+
           let contributionFV;
           if (activeContribMonths === 0 || monthly === 0) {
             contributionFV = 0;
           } else if (monthlyRate > 0) {
-            // 積立終了時点でのFV
             const fvAtEndOfContrib = monthly * ((Math.pow(1 + monthlyRate, activeContribMonths) - 1) / monthlyRate);
-            // そこから(y - activeContribYears)年間、利率で運用
             const idleYears = y - activeContribYears;
             contributionFV = fvAtEndOfContrib * Math.pow(1 + annualRate, idleYears);
           } else {
             contributionFV = monthly * activeContribMonths;
           }
 
-          // 銘柄ネイティブ通貨ベースの将来価値
           const futureValueBeforeTax = principalGrowth + contributionFV;
           const totalInvestedLocal = h.amount + monthly * activeContribMonths;
           const capitalGain = Math.max(0, futureValueBeforeTax - totalInvestedLocal);
@@ -293,7 +279,6 @@ export default function App() {
           const futureValue = futureValueBeforeTax - capitalGainTax;
 
           const rateAtYear = usdJpy + ((futureUsdJpy - usdJpy) * y / Math.max(years, 1));
-          // 為替連動: USD銘柄は当然ドル建て。JPY建てでも fxLinked=true なら為替影響を受ける
           let valueInJPY, valueInUSD;
           if (h.currency === 'USD') {
             valueInJPY = futureValue * rateAtYear;
@@ -327,23 +312,14 @@ export default function App() {
         data.push(row);
       }
     } else {
-      // 取り崩しモード: 前半は積立期間、後半は取り崩し期間
-      // 銘柄ごとにネイティブ通貨で運用 → 表示通貨に変換
-      // 各銘柄の状態を初期化(ネイティブ通貨ベースの保有額)
       const holdingState = holdings.map(h => {
         const tax = (h.tax || 0) / 100;
         const effectiveDividend = reinvest ? h.dividend * (1 - tax) : 0;
         const annualRate = (h.growth + effectiveDividend) / 100;
-        // 現在の価値を「ドル円ベースの基準額」として持つ
-        // - USD銘柄: そのままドル
-        // - fxLinked JPY銘柄: 現在のレートでドル換算
-        // - 非fxLinked JPY銘柄: 円のまま
         let nativeValue;
-        let valueInUSD = null;
         if (h.currency === 'USD') {
           nativeValue = h.amount;
         } else if (h.fxLinked) {
-          // 円建て為替連動: 内部的にドル建てとして保持
           nativeValue = h.amount / usdJpy;
         } else {
           nativeValue = h.amount;
@@ -354,7 +330,6 @@ export default function App() {
         };
       });
 
-      // 年次ループ
       const getTotalInDisplay = (y) => {
         const rateAtYear = usdJpy + ((futureUsdJpy - usdJpy) * y / Math.max(years, 1));
         let totalJPY = 0;
@@ -362,10 +337,8 @@ export default function App() {
           const h = s.h;
           let valueInJPY;
           if (h.currency === 'USD' || h.fxLinked) {
-            // ドル建ての価値を為替で円換算
             valueInJPY = s.nativeValue * rateAtYear;
           } else {
-            // 純日本円建て
             valueInJPY = s.nativeValue;
           }
           totalJPY += valueInJPY;
@@ -373,12 +346,9 @@ export default function App() {
         return displayCurrency === 'JPY' ? totalJPY : totalJPY / rateAtYear;
       };
 
-      // 取り崩し額を各銘柄にpropotionalに配分する
       const withdrawProportionally = (annualWithdrawInDisplay, yearForRate) => {
         const rateAtYear = usdJpy + ((futureUsdJpy - usdJpy) * yearForRate / Math.max(years, 1));
-        // 取り崩し額を円換算
         const withdrawJPY = displayCurrency === 'JPY' ? annualWithdrawInDisplay : annualWithdrawInDisplay * rateAtYear;
-        // 現在の各銘柄の円換算価値
         const values = holdingState.map(s => {
           const h = s.h;
           if (h.currency === 'USD' || h.fxLinked) {
@@ -389,12 +359,11 @@ export default function App() {
         });
         const totalJPY = values.reduce((a, b) => a + b, 0);
         if (totalJPY <= 0) return;
-        
+
         holdingState.forEach((s, i) => {
           const share = values[i] / totalJPY;
           const withdrawFromThisJPY = withdrawJPY * share;
           const h = s.h;
-          // ネイティブ通貨に戻す
           let withdrawFromThisNative;
           if (h.currency === 'USD' || h.fxLinked) {
             withdrawFromThisNative = withdrawFromThisJPY / rateAtYear;
@@ -405,14 +374,12 @@ export default function App() {
         });
       };
 
-      // 積立額を各銘柄に分配して投入(y年目の積立、経過年数を渡す)
       const applyMonthlyContributions = (currentY) => {
         holdingState.forEach(s => {
           const h = s.h;
           const contribMaxYears = (h.monthlyYears && h.monthlyYears > 0) ? h.monthlyYears : years;
-          // currentY年目が積立期間内かチェック
           if (currentY >= contribMaxYears) return;
-          
+
           if (s.monthly > 0) {
             if (h.currency === 'USD') {
               s.nativeValue += s.monthly * 12;
@@ -425,7 +392,6 @@ export default function App() {
         });
       };
 
-      // 成長を適用
       const applyGrowth = () => {
         holdingState.forEach(s => {
           s.nativeValue *= (1 + s.annualRate);
@@ -443,11 +409,9 @@ export default function App() {
 
         if (y < years) {
           if (y < withdrawStartYear) {
-            // 積立期間: 積立 → 成長
             applyMonthlyContributions(y);
             applyGrowth();
           } else {
-            // 取り崩し期間: 取り崩し → 成長
             withdrawProportionally(withdrawMonthly * 12, y);
             applyGrowth();
           }
@@ -483,8 +447,8 @@ export default function App() {
       const monthlyInDisplay = displayCurrency === 'JPY'
         ? (h.currency === 'USD' ? monthly * usdJpy : monthly)
         : (h.currency === 'USD' ? monthly : monthly / usdJpy);
-      const contribYears = (h.monthlyYears && h.monthlyYears > 0) 
-        ? Math.min(h.monthlyYears, years) 
+      const contribYears = (h.monthlyYears && h.monthlyYears > 0)
+        ? Math.min(h.monthlyYears, years)
         : years;
       const contributions = initialInDisplay + monthlyInDisplay * 12 * contribYears;
       const gain = finalValue - contributions;
@@ -525,6 +489,19 @@ export default function App() {
       : (h.currency === 'USD' ? m : m / usdJpy);
   };
 
+  const ageTicks = useMemo(() => {
+    const arr = [];
+    const startAge = currentAge;
+    const endAge = currentAge + years;
+    const firstTick = Math.ceil(startAge / 5) * 5;
+    for (let age = firstTick; age <= endAge; age += 5) {
+      arr.push(age - currentAge);
+    }
+    if (arr.length === 0 || arr[0] > 1) arr.unshift(0);
+    if (arr[arr.length - 1] < years - 1) arr.push(years);
+    return arr;
+  }, [currentAge, years]);
+
   return (
     <div style={{
       fontFamily: '-apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif',
@@ -541,8 +518,8 @@ export default function App() {
         <h1 style={{ fontSize: 'clamp(22px, 5vw, 28px)', fontWeight: 500, margin: 0 }}>ポートフォリオ シミュレーター</h1>
       </div>
 
-      <div style={{ 
-        display: 'flex', 
+      <div style={{
+        display: 'flex',
         gap: '4px',
         background: '#f4f4f2',
         padding: '4px',
@@ -560,10 +537,10 @@ export default function App() {
         marginBottom: '20px',
       }}>
         <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>
-          {mode === 'grow' 
+          {mode === 'grow'
             ? (currentAge + years) + '歳時点の予想資産 (' + years + '年後)'
-            : (depletionYear !== null 
-                ? (currentAge + depletionYear) + '歳で枯渇 (' + depletionYear + '年後)' 
+            : (depletionYear !== null
+                ? (currentAge + depletionYear) + '歳で枯渇 (' + depletionYear + '年後)'
                 : (currentAge + years) + '歳時点の残高 (' + years + '年後)')}
         </div>
         <div style={{ fontSize: 'clamp(28px, 8vw, 40px)', fontWeight: 600, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
@@ -575,10 +552,10 @@ export default function App() {
 
         {mode === 'grow' && (
           <div>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px', 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
               marginTop: '8px',
               fontSize: '14px',
               color: accentColor,
@@ -591,9 +568,9 @@ export default function App() {
               <span style={{ color: '#888', fontWeight: 400 }}>vs 投入額 {formatMoney(totalContributions, true)}</span>
             </div>
             {totalMonthly > 0 && (
-              <div style={{ 
-                marginTop: '10px', 
-                fontSize: '12px', 
+              <div style={{
+                marginTop: '10px',
+                fontSize: '12px',
                 color: '#666',
                 paddingTop: '10px',
                 borderTop: '0.5px dashed rgba(0,0,0,0.1)',
@@ -606,7 +583,7 @@ export default function App() {
 
         {mode === 'withdraw' && (
           <div style={{ marginTop: '8px', fontSize: '14px', color: '#666', lineHeight: 1.6 }}>
-            {withdrawStartYear > 0 
+            {withdrawStartYear > 0
               ? currentAge + '歳(現在' + formatMoney(summary.initial, true) + ')→ ' + (currentAge + withdrawStartYear) + '歳まで積立 → ' + (currentAge + withdrawStartYear) + '歳から月' + formatMoney(withdrawMonthly, true) + '取り崩し'
               : currentAge + '歳・' + formatMoney(summary.initial, true) + ' から月' + formatMoney(withdrawMonthly, true) + '(年' + formatMoney(withdrawMonthly * 12, true) + ')を取り崩し'}
           </div>
@@ -622,34 +599,20 @@ export default function App() {
                     <stop offset="100%" stopColor={accentColor} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis 
-                  dataKey="year" 
+                <XAxis
+                  dataKey="year"
                   tick={{ fontSize: 10, fill: '#888' }}
                   axisLine={false}
                   tickLine={false}
-                  ticks={(() => {
-                    const arr = [];
-                    // 現在年齢から5歳刻みで、シミュレーション期間内の年齢を抽出
-                    const startAge = currentAge;
-                    const endAge = currentAge + years;
-                    // 5の倍数の年齢を抽出
-                    const firstTick = Math.ceil(startAge / 5) * 5;
-                    for (let age = firstTick; age <= endAge; age += 5) {
-                      arr.push(age - currentAge);
-                    }
-                    // 始点と終点も確実に含める(ただし近すぎる場合は除外)
-                    if (arr.length === 0 || arr[0] > 1) arr.unshift(0);
-                    if (arr[arr.length - 1] < years - 1) arr.push(years);
-                    return arr;
-                  })()}
+                  ticks={ageTicks}
                   tickFormatter={(v) => (currentAge + v) + '歳'}
                   interval={0}
                 />
-                <Tooltip 
+                <Tooltip
                   formatter={(v) => formatMoney(v)}
                   labelFormatter={(l) => (currentAge + l) + '歳 (' + l + '年後)'}
-                  contentStyle={{ 
-                    background: '#fff', 
+                  contentStyle={{
+                    background: '#fff',
                     border: '0.5px solid rgba(0,0,0,0.15)',
                     borderRadius: '8px', fontSize: '12px',
                   }}
@@ -667,7 +630,7 @@ export default function App() {
         )}
       </div>
 
-      <div style={{ 
+      <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
         gap: '12px',
@@ -676,16 +639,16 @@ export default function App() {
         <Card>
           <Label>今の年齢</Label>
           <SliderRow>
-            <input 
-              type="range" 
-              min="0" 
-              max="100" 
-              step="1" 
-              value={currentAge} 
-              onChange={e => setCurrentAge(+e.target.value)} 
-              style={{ flex: 1 }} 
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={currentAge}
+              onChange={e => setCurrentAge(+e.target.value)}
+              style={{ flex: 1 }}
             />
-            <Value>{currentAge}歳</Value>
+            <ValueText>{currentAge}歳</ValueText>
           </SliderRow>
         </Card>
 
@@ -693,16 +656,16 @@ export default function App() {
           <Card>
             <Label>何歳までシミュレーション</Label>
             <SliderRow>
-              <input 
-                type="range" 
-                min={currentAge + 1} 
-                max="110" 
-                step="1" 
-                value={currentAge + years} 
-                onChange={e => setYears(+e.target.value - currentAge)} 
-                style={{ flex: 1 }} 
+              <input
+                type="range"
+                min={currentAge + 1}
+                max="110"
+                step="1"
+                value={currentAge + years}
+                onChange={e => setYears(+e.target.value - currentAge)}
+                style={{ flex: 1 }}
               />
-              <Value>{currentAge + years}歳</Value>
+              <ValueText>{currentAge + years}歳</ValueText>
             </SliderRow>
             <div style={{ fontSize: '11px', color: '#666', marginTop: '6px' }}>
               期間: {years}年
@@ -714,20 +677,20 @@ export default function App() {
           <Card>
             <Label>何歳から取り崩す</Label>
             <SliderRow>
-              <input 
-                type="range" 
-                min={currentAge} 
-                max={currentAge + years} 
-                step="1" 
-                value={currentAge + Math.min(withdrawStartYear, years)} 
-                onChange={e => setWithdrawStartYear(+e.target.value - currentAge)} 
-                style={{ flex: 1 }} 
+              <input
+                type="range"
+                min={currentAge}
+                max={currentAge + years}
+                step="1"
+                value={currentAge + Math.min(withdrawStartYear, years)}
+                onChange={e => setWithdrawStartYear(+e.target.value - currentAge)}
+                style={{ flex: 1 }}
               />
-              <Value>{currentAge + withdrawStartYear}歳</Value>
+              <ValueText>{currentAge + withdrawStartYear}歳</ValueText>
             </SliderRow>
             <div style={{ fontSize: '11px', color: '#666', marginTop: '6px' }}>
-              {withdrawStartYear === 0 
-                ? '今すぐ取り崩し開始' 
+              {withdrawStartYear === 0
+                ? '今すぐ取り崩し開始'
                 : 'あと' + withdrawStartYear + '年間は積立・運用'}
             </div>
           </Card>
@@ -737,16 +700,16 @@ export default function App() {
           <Card>
             <Label>何歳までシミュレーション</Label>
             <SliderRow>
-              <input 
-                type="range" 
-                min={currentAge + 1} 
-                max="110" 
-                step="1" 
-                value={currentAge + years} 
-                onChange={e => setYears(+e.target.value - currentAge)} 
-                style={{ flex: 1 }} 
+              <input
+                type="range"
+                min={currentAge + 1}
+                max="110"
+                step="1"
+                value={currentAge + years}
+                onChange={e => setYears(+e.target.value - currentAge)}
+                style={{ flex: 1 }}
               />
-              <Value>{currentAge + years}歳</Value>
+              <ValueText>{currentAge + years}歳</ValueText>
             </SliderRow>
           </Card>
         )}
@@ -754,12 +717,12 @@ export default function App() {
         {mode === 'withdraw' && (
           <Card>
             <Label>月の取り崩し額 ({displayCurrency === 'JPY' ? '円' : 'ドル'})</Label>
-            <input 
-              type="number" 
-              value={withdrawMonthly} 
+            <input
+              type="number"
+              value={withdrawMonthly}
               step={displayCurrency === 'JPY' ? 10000 : 100}
-              onChange={e => setWithdrawMonthly(+e.target.value || 0)} 
-              style={webInputStyle} 
+              onChange={e => setWithdrawMonthly(+e.target.value || 0)}
+              style={webInputStyle}
             />
             <div style={{ fontSize: '12px', color: '#666', marginTop: '6px' }}>
               年額: {formatMoney(withdrawMonthly * 12, true)}
@@ -769,7 +732,7 @@ export default function App() {
       </div>
 
       <Card style={{ marginBottom: '20px' }}>
-        <div 
+        <div
           onClick={() => setShowSettings(!showSettings)}
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
         >
@@ -777,8 +740,8 @@ export default function App() {
           <span style={{ fontSize: '14px', color: '#888', transform: showSettings ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>▸</span>
         </div>
         {showSettings && (
-          <div style={{ 
-            display: 'grid', 
+          <div style={{
+            display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
             gap: '16px',
             marginTop: '16px',
@@ -789,7 +752,7 @@ export default function App() {
               <Label>インフレ率</Label>
               <SliderRow>
                 <input type="range" min="0" max="10" step="0.1" value={inflation} onChange={e => setInflation(+e.target.value)} style={{ flex: 1 }} />
-                <Value>{inflation.toFixed(1)}%</Value>
+                <ValueText>{inflation.toFixed(1)}%</ValueText>
               </SliderRow>
             </div>
             <div>
@@ -805,7 +768,7 @@ export default function App() {
               <div style={{ display: 'flex', gap: '6px' }}>
                 {['JPY', 'USD'].map(c => (
                   <button key={c} onClick={() => setDisplayCurrency(c)} style={{
-                    flex: 1, padding: '8px', 
+                    flex: 1, padding: '8px',
                     background: displayCurrency === c ? '#0a0a0a' : 'transparent',
                     color: displayCurrency === c ? '#fff' : '#0a0a0a',
                     border: '0.5px solid rgba(0,0,0,0.2)',
@@ -830,7 +793,7 @@ export default function App() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <h2 style={{ fontSize: '16px', fontWeight: 500, margin: 0 }}>保有銘柄</h2>
-        <button 
+        <button
           onClick={() => setShowAddModal(true)}
           style={{
             background: '#0a0a0a',
@@ -856,6 +819,8 @@ export default function App() {
           {holdings.map((h) => {
             const perf = perHoldingFinal.find(p => p.id === h.id);
             const monthlyDisplay = monthlyDisplayFor(h);
+            const hasMonthly = Number(h.monthly) > 0;
+            const monthlyYearsNum = Number(h.monthlyYears) || 0;
             return (
               <div key={h.id} style={{
                 background: '#fff',
@@ -863,7 +828,7 @@ export default function App() {
                 borderRadius: '10px',
                 overflow: 'hidden',
               }}>
-                <div 
+                <div
                   onClick={() => setEditingId(editingId === h.id ? null : h.id)}
                   style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                 >
@@ -890,7 +855,7 @@ export default function App() {
                     <div style={{ fontSize: '12px', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {h.fullName} · {h.growth}%
                       {h.dividend > 0 ? ' + 配' + h.dividend + '%' : ''}
-                      {(h.monthly || 0) > 0 ? ' · 月' + formatMoney(monthlyDisplay, true) + ((h.monthlyYears || 0) > 0 ? '積立(' + h.monthlyYears + '年)' : '積立') : ''}
+                      {hasMonthly ? (' · 月' + formatMoney(monthlyDisplay, true) + (monthlyYearsNum > 0 ? '積立(' + monthlyYearsNum + '年)' : '積立')) : ''}
                     </div>
                   </div>
                   {mode === 'grow' && perf && (
@@ -903,7 +868,7 @@ export default function App() {
                   )}
                   {mode === 'withdraw' && (
                     <div style={{ textAlign: 'right', flexShrink: 0, fontSize: '13px', color: '#666' }}>
-                      {formatMoney(displayCurrency === 'JPY' 
+                      {formatMoney(displayCurrency === 'JPY'
                         ? (h.currency === 'USD' ? h.amount * usdJpy : h.amount)
                         : (h.currency === 'USD' ? h.amount : h.amount / usdJpy), true)}
                     </div>
@@ -924,339 +889,57 @@ export default function App() {
                       <input type="number" value={h.amount} onChange={e => updateHolding(h.id, 'amount', +e.target.value || 0)} style={webInputStyle} />
                     </EditRow>
                     <EditRow label={'月の積立額 (' + h.currency + ')'}>
-                      <input 
-                        type="number" 
-                        value={h.monthly || 0} 
+                      <input
+                        type="number"
+                        value={h.monthly || 0}
                         step={h.currency === 'USD' ? 100 : 10000}
-                        onChange={e => updateHolding(h.id, 'monthly', +e.target.value || 0)} 
-                        style={webInputStyle} 
+                        onChange={e => updateHolding(h.id, 'monthly', +e.target.value || 0)}
+                        style={webInputStyle}
                       />
-                      {(h.monthly || 0) > 0 && (
+                      {hasMonthly && (
                         <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                          年間: {h.currency === 'USD' ? '
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                      <EditRow label="通貨">
-                        <select value={h.currency} onChange={e => updateHolding(h.id, 'currency', e.target.value)} style={webInputStyle}>
-                          <option value="JPY">円</option>
-                          <option value="USD">$</option>
-                        </select>
-                      </EditRow>
-                      <EditRow label="成長%/年">
-                        <input type="number" value={h.growth} step="0.1" onChange={e => updateHolding(h.id, 'growth', +e.target.value || 0)} style={webInputStyle} />
-                      </EditRow>
-                      <EditRow label="配当%/年">
-                        <input type="number" value={h.dividend} step="0.1" onChange={e => updateHolding(h.id, 'dividend', +e.target.value || 0)} style={webInputStyle} />
-                      </EditRow>
-                    </div>
-                    <EditRow label="税率 (%)">
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <input 
-                          type="number" 
-                          value={h.tax || 0} 
-                          step="1"
-                          min="0"
-                          max="100"
-                          onChange={e => updateHolding(h.id, 'tax', +e.target.value || 0)} 
-                          style={Object.assign({}, webInputStyle, { flex: 1 })} 
-                        />
-                        <button
-                          onClick={() => updateHolding(h.id, 'tax', 0)}
-                          style={{
-                            padding: '8px 12px',
-                            background: (h.tax || 0) === 0 ? '#10B981' : 'transparent',
-                            color: (h.tax || 0) === 0 ? '#fff' : '#10B981',
-                            border: '0.5px solid #10B981',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >NISA</button>
-                        <button
-                          onClick={() => updateHolding(h.id, 'tax', 20)}
-                          style={{
-                            padding: '8px 12px',
-                            background: (h.tax || 0) === 20 ? '#0a0a0a' : 'transparent',
-                            color: (h.tax || 0) === 20 ? '#fff' : '#0a0a0a',
-                            border: '0.5px solid rgba(0,0,0,0.2)',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >課税20%</button>
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                        配当は毎年、売却益は{years}年後に課税されます
-                      </div>
-                    </EditRow>
-                    <EditRow label="為替(ドル円)の影響">
-                      <label style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '8px', 
-                        padding: '8px 10px',
-                        background: '#fff',
-                        border: '0.5px solid rgba(0,0,0,0.15)',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                      }}>
-                        <input 
-                          type="checkbox" 
-                          checked={h.fxLinked || false} 
-                          onChange={e => updateHolding(h.id, 'fxLinked', e.target.checked)} 
-                        />
-                        <span>この銘柄は為替(ドル円)の影響を受ける</span>
-                      </label>
-                      <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                        {h.fxLinked 
-                          ? '米国株や米国株投信は通常ON。円高になると円建て評価額が下がります' 
-                          : '日経225・TOPIX等の純国内資産はOFF。日本円のみで完結'}
-                      </div>
-                    </EditRow>
-                    <button 
-                      onClick={() => { removeHolding(h.id); setEditingId(null); }}
-                      style={{
-                        background: 'transparent', color: '#EF4444',
-                        border: '0.5px solid rgba(239,68,68,0.3)',
-                        borderRadius: '8px', padding: '8px',
-                        fontSize: '13px', fontWeight: 500, cursor: 'pointer', marginTop: '4px',
-                      }}
-                    >この銘柄を削除</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {mode === 'grow' && holdings.length > 1 && simulation.length > 0 && (
-        <Card style={{ marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 500, margin: '0 0 12px' }}>銘柄別推移</h3>
-          <div style={{ height: '260px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={simulation} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="2 4" stroke="rgba(128,128,128,0.15)" vertical={false} />
-                <XAxis 
-                  dataKey="year" 
-                  tick={{ fontSize: 11, fill: '#666' }} 
-                  axisLine={false} 
-                  tickLine={false}
-                  tickFormatter={(v) => (currentAge + v) + '歳'}
-                />
-                <YAxis 
-                  tick={{ fontSize: 11, fill: '#666' }}
-                  axisLine={false} tickLine={false}
-                  tickFormatter={(v) => formatMoney(v, true).replace(/[¥$]/, '')}
-                  width={50}
-                />
-                <Tooltip 
-                  formatter={(v) => formatMoney(v)}
-                  labelFormatter={(l) => (currentAge + l) + '歳 (' + l + '年後)'}
-                  contentStyle={{ 
-                    background: '#fff', 
-                    border: '0.5px solid rgba(0,0,0,0.15)',
-                    borderRadius: '8px', fontSize: '12px',
-                  }}
-                />
-                {holdings.map((h) => (
-                  <Line key={h.id} type="monotone" dataKey={'h' + h.id} name={h.name} stroke={h.accent} strokeWidth={1.8} dot={false} />
-                ))}
-                <Line type="monotone" dataKey="total" name="合計" stroke="#0a0a0a" strokeWidth={2.5} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '12px', fontSize: '12px', color: '#666' }}>
-            {holdings.map(h => (
-              <span key={h.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '10px', height: '2px', background: h.accent, borderRadius: '1px' }} />
-                {h.name}
-              </span>
-            ))}
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}>
-              <span style={{ width: '10px', height: '2px', background: '#0a0a0a', borderRadius: '1px' }} />
-              合計
-            </span>
-          </div>
-        </Card>
-      )}
-
-      {mode === 'withdraw' && holdings.length > 0 && (
-        <Card style={{ marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 500, margin: '0 0 12px' }}>取り崩しシミュレーション</h3>
-          <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.8 }}>
-            {withdrawStartYear > 0 && simulation[withdrawStartYear] && (
-              <Stat 
-                label={(currentAge + withdrawStartYear) + '歳(取り崩し開始)の資産'} 
-                value={formatMoney(simulation[withdrawStartYear].total)} 
-                color="#F59E0B"
-              />
-            )}
-            <Stat label="年間取り崩し額" value={formatMoney(withdrawMonthly * 12)} />
-            <Stat label={depletionYear !== null ? '資産が枯渇する年齢' : (currentAge + years) + '歳時点の残高'} 
-              value={depletionYear !== null ? (currentAge + depletionYear) + '歳 (' + depletionYear + '年後)' : formatMoney(summary.final)} 
-              color={depletionYear !== null ? '#EF4444' : '#10B981'} 
-            />
-            {depletionYear === null && withdrawStartYear > 0 && simulation[withdrawStartYear] && simulation[withdrawStartYear].total > 0 && (
-              <Stat 
-                label="取り崩し開始時の年間率" 
-                value={((withdrawMonthly * 12 / simulation[withdrawStartYear].total) * 100).toFixed(1) + '%'}
-              />
-            )}
-            {depletionYear === null && withdrawStartYear === 0 && initialTotal > 0 && (
-              <Stat label="年間取り崩しの元本比率(現在)" 
-                value={((withdrawMonthly * 12 / initialTotal) * 100).toFixed(1) + '%'}
-              />
-            )}
-          </div>
-          <div style={{ 
-            marginTop: '14px', padding: '12px', 
-            background: '#e6f1fb', 
-            borderRadius: '8px', 
-            fontSize: '12px', color: '#0C447C',
-            lineHeight: 1.6,
-          }}>
-            💡 一般的に「年4%ルール」(年間取り崩し率を資産の4%以内)を守ると、30年以上持つと言われています。
-          </div>
-        </Card>
-      )}
-
-      {showAddModal && (
-        <div 
-          onClick={() => setShowAddModal(false)}
-          style={{
-            position: 'fixed', inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(4px)',
-            WebkitBackdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 100, padding: '16px',
-          }}
-        >
-          <div 
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: '#fff',
-              width: '100%', maxWidth: '500px', maxHeight: '85vh',
-              borderRadius: '14px', padding: '20px',
-              overflowY: 'auto',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ fontSize: '17px', fontWeight: 500 }}>銘柄を追加</div>
-              <button 
-                onClick={() => setShowAddModal(false)}
-                style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#666' }}
-              >×</button>
-            </div>
-            <div style={{ display: 'grid', gap: '16px' }}>
-              {['日本投信', '米国ETF', '米国個別株', '債券・REIT'].map(cat => (
-                <div key={cat}>
-                  <div style={{ 
-                    fontSize: '11px', color: '#888',
-                    letterSpacing: '0.5px', marginBottom: '6px', fontWeight: 500,
-                  }}>{cat}</div>
-                  <div style={{ display: 'grid', gap: '6px' }}>
-                    {Object.entries(PRESETS).filter(([, p]) => p.category === cat).map(([key, p]) => (
-                      <button 
-                        key={key}
-                        onClick={() => addHolding(key)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '10px',
-                          padding: '10px 12px',
-                          background: '#f4f4f2',
-                          border: '0.5px solid rgba(0,0,0,0.08)',
-                          borderRadius: '10px',
-                          color: '#0a0a0a',
-                          cursor: 'pointer', textAlign: 'left',
-                        }}
-                      >
-                        <div style={{
-                          width: '32px', height: '32px', borderRadius: '8px',
-                          background: p.accent, color: '#fff',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '10px', fontWeight: 700, flexShrink: 0,
-                        }}>{p.name.slice(0, 4)}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '14px', fontWeight: 500 }}>{p.name}</div>
-                          <div style={{ fontSize: '11px', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {p.fullName} · 年{p.growth}%{p.dividend > 0 ? ' + 配' + p.dividend + '%' : ''}
-                          </div>
-                        </div>
-                        <div style={{ fontSize: '18px', color: '#aaa' }}>+</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              <button 
-                onClick={addCustom}
-                style={{
-                  padding: '12px', background: 'transparent',
-                  border: '1px dashed rgba(0,0,0,0.2)',
-                  borderRadius: '10px',
-                  color: '#666',
-                  cursor: 'pointer', fontSize: '13px',
-                }}
-              >+ カスタム銘柄を追加</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div style={{
-        fontSize: '11px', color: '#888',
-        lineHeight: 1.6, marginTop: '24px',
-        paddingTop: '16px', borderTop: '0.5px solid rgba(0,0,0,0.08)',
-      }}>
-        ※ 過去平均ベースの試算であり、将来の運用成果を保証するものではありません。税金は銘柄ごとの税率設定(デフォルト20%、NISAなら0%)に基づき、配当は毎年税引き後再投資、売却益は最終年に課税する前提で計算しています。「為替連動」をONにした銘柄は、原資産をドル建てとみなしてドル円変動を反映します(eMAXIS Slim S&P500等、為替ヘッジなし投信は通常ON)。取り崩しモードでは、ポートフォリオ全体の加重平均リターンで運用しつつ年初に引き出す前提で計算しています。
-      </div>
-    </div>
-  );
-}
- : '¥'}{((h.monthly || 0) * 12).toLocaleString()}
+                          年間: {(h.currency === 'USD' ? '$' : '¥') + ((h.monthly || 0) * 12).toLocaleString()}
                         </div>
                       )}
                     </EditRow>
-                    {(h.monthly || 0) > 0 && (
-                      <EditRow label="積立期間">
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                          <input 
-                            type="number" 
-                            value={h.monthlyYears || 0} 
-                            step="1"
-                            min="0"
-                            max="60"
-                            onChange={e => updateHolding(h.id, 'monthlyYears', +e.target.value || 0)} 
-                            style={Object.assign({}, webInputStyle, { flex: 1 })} 
-                          />
-                          <span style={{ fontSize: '13px', color: '#666' }}>年</span>
-                          <button
-                            onClick={() => updateHolding(h.id, 'monthlyYears', 0)}
-                            style={{
-                              padding: '8px 12px',
-                              background: (h.monthlyYears || 0) === 0 ? '#0a0a0a' : 'transparent',
-                              color: (h.monthlyYears || 0) === 0 ? '#fff' : '#0a0a0a',
-                              border: '0.5px solid rgba(0,0,0,0.2)',
-                              borderRadius: '8px',
-                              fontSize: '12px',
-                              fontWeight: 500,
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >期間全体</button>
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                          {(h.monthlyYears || 0) === 0 
-                            ? 'シミュレーション期間中ずっと積み立てる' 
-                            : h.monthlyYears + '年間積み立てて、その後は運用のみ(' + (currentAge + (h.monthlyYears || 0)) + '歳まで積立)'}
-                        </div>
-                      </EditRow>
-                    )}
+                    <EditRow label="積立期間">
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <input
+                          type="number"
+                          value={h.monthlyYears || 0}
+                          step="1"
+                          min="0"
+                          max="60"
+                          onChange={e => updateHolding(h.id, 'monthlyYears', +e.target.value || 0)}
+                          style={Object.assign({}, webInputStyle, { flex: 1 })}
+                          disabled={!hasMonthly}
+                        />
+                        <span style={{ fontSize: '13px', color: '#666' }}>年</span>
+                        <button
+                          onClick={() => updateHolding(h.id, 'monthlyYears', 0)}
+                          disabled={!hasMonthly}
+                          style={{
+                            padding: '8px 12px',
+                            background: monthlyYearsNum === 0 ? '#0a0a0a' : 'transparent',
+                            color: monthlyYearsNum === 0 ? '#fff' : '#0a0a0a',
+                            border: '0.5px solid rgba(0,0,0,0.2)',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            cursor: hasMonthly ? 'pointer' : 'not-allowed',
+                            opacity: hasMonthly ? 1 : 0.4,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >期間全体</button>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                        {!hasMonthly
+                          ? '月の積立額を設定すると有効になります'
+                          : monthlyYearsNum === 0
+                            ? 'シミュレーション期間中ずっと積み立てる'
+                            : monthlyYearsNum + '年間積み立てて、その後は運用のみ(' + (currentAge + monthlyYearsNum) + '歳まで積立)'}
+                      </div>
+                    </EditRow>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                       <EditRow label="通貨">
                         <select value={h.currency} onChange={e => updateHolding(h.id, 'currency', e.target.value)} style={webInputStyle}>
@@ -1273,14 +956,14 @@ export default function App() {
                     </div>
                     <EditRow label="税率 (%)">
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <input 
-                          type="number" 
-                          value={h.tax || 0} 
+                        <input
+                          type="number"
+                          value={h.tax || 0}
                           step="1"
                           min="0"
                           max="100"
-                          onChange={e => updateHolding(h.id, 'tax', +e.target.value || 0)} 
-                          style={Object.assign({}, webInputStyle, { flex: 1 })} 
+                          onChange={e => updateHolding(h.id, 'tax', +e.target.value || 0)}
+                          style={Object.assign({}, webInputStyle, { flex: 1 })}
                         />
                         <button
                           onClick={() => updateHolding(h.id, 'tax', 0)}
@@ -1316,10 +999,10 @@ export default function App() {
                       </div>
                     </EditRow>
                     <EditRow label="為替(ドル円)の影響">
-                      <label style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '8px', 
+                      <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
                         padding: '8px 10px',
                         background: '#fff',
                         border: '0.5px solid rgba(0,0,0,0.15)',
@@ -1327,20 +1010,20 @@ export default function App() {
                         cursor: 'pointer',
                         fontSize: '13px',
                       }}>
-                        <input 
-                          type="checkbox" 
-                          checked={h.fxLinked || false} 
-                          onChange={e => updateHolding(h.id, 'fxLinked', e.target.checked)} 
+                        <input
+                          type="checkbox"
+                          checked={h.fxLinked || false}
+                          onChange={e => updateHolding(h.id, 'fxLinked', e.target.checked)}
                         />
                         <span>この銘柄は為替(ドル円)の影響を受ける</span>
                       </label>
                       <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                        {h.fxLinked 
-                          ? '米国株や米国株投信は通常ON。円高になると円建て評価額が下がります' 
+                        {h.fxLinked
+                          ? '米国株や米国株投信は通常ON。円高になると円建て評価額が下がります'
                           : '日経225・TOPIX等の純国内資産はOFF。日本円のみで完結'}
                       </div>
                     </EditRow>
-                    <button 
+                    <button
                       onClick={() => { removeHolding(h.id); setEditingId(null); }}
                       style={{
                         background: 'transparent', color: '#EF4444',
@@ -1364,24 +1047,24 @@ export default function App() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={simulation} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="2 4" stroke="rgba(128,128,128,0.15)" vertical={false} />
-                <XAxis 
-                  dataKey="year" 
-                  tick={{ fontSize: 11, fill: '#666' }} 
-                  axisLine={false} 
+                <XAxis
+                  dataKey="year"
+                  tick={{ fontSize: 11, fill: '#666' }}
+                  axisLine={false}
                   tickLine={false}
                   tickFormatter={(v) => (currentAge + v) + '歳'}
                 />
-                <YAxis 
+                <YAxis
                   tick={{ fontSize: 11, fill: '#666' }}
                   axisLine={false} tickLine={false}
                   tickFormatter={(v) => formatMoney(v, true).replace(/[¥$]/, '')}
                   width={50}
                 />
-                <Tooltip 
+                <Tooltip
                   formatter={(v) => formatMoney(v)}
                   labelFormatter={(l) => (currentAge + l) + '歳 (' + l + '年後)'}
-                  contentStyle={{ 
-                    background: '#fff', 
+                  contentStyle={{
+                    background: '#fff',
                     border: '0.5px solid rgba(0,0,0,0.15)',
                     borderRadius: '8px', fontSize: '12px',
                   }}
@@ -1413,33 +1096,33 @@ export default function App() {
           <h3 style={{ fontSize: '15px', fontWeight: 500, margin: '0 0 12px' }}>取り崩しシミュレーション</h3>
           <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.8 }}>
             {withdrawStartYear > 0 && simulation[withdrawStartYear] && (
-              <Stat 
-                label={(currentAge + withdrawStartYear) + '歳(取り崩し開始)の資産'} 
-                value={formatMoney(simulation[withdrawStartYear].total)} 
+              <Stat
+                label={(currentAge + withdrawStartYear) + '歳(取り崩し開始)の資産'}
+                value={formatMoney(simulation[withdrawStartYear].total)}
                 color="#F59E0B"
               />
             )}
             <Stat label="年間取り崩し額" value={formatMoney(withdrawMonthly * 12)} />
-            <Stat label={depletionYear !== null ? '資産が枯渇する年齢' : (currentAge + years) + '歳時点の残高'} 
-              value={depletionYear !== null ? (currentAge + depletionYear) + '歳 (' + depletionYear + '年後)' : formatMoney(summary.final)} 
-              color={depletionYear !== null ? '#EF4444' : '#10B981'} 
+            <Stat label={depletionYear !== null ? '資産が枯渇する年齢' : (currentAge + years) + '歳時点の残高'}
+              value={depletionYear !== null ? (currentAge + depletionYear) + '歳 (' + depletionYear + '年後)' : formatMoney(summary.final)}
+              color={depletionYear !== null ? '#EF4444' : '#10B981'}
             />
             {depletionYear === null && withdrawStartYear > 0 && simulation[withdrawStartYear] && simulation[withdrawStartYear].total > 0 && (
-              <Stat 
-                label="取り崩し開始時の年間率" 
+              <Stat
+                label="取り崩し開始時の年間率"
                 value={((withdrawMonthly * 12 / simulation[withdrawStartYear].total) * 100).toFixed(1) + '%'}
               />
             )}
             {depletionYear === null && withdrawStartYear === 0 && initialTotal > 0 && (
-              <Stat label="年間取り崩しの元本比率(現在)" 
+              <Stat label="年間取り崩しの元本比率(現在)"
                 value={((withdrawMonthly * 12 / initialTotal) * 100).toFixed(1) + '%'}
               />
             )}
           </div>
-          <div style={{ 
-            marginTop: '14px', padding: '12px', 
-            background: '#e6f1fb', 
-            borderRadius: '8px', 
+          <div style={{
+            marginTop: '14px', padding: '12px',
+            background: '#e6f1fb',
+            borderRadius: '8px',
             fontSize: '12px', color: '#0C447C',
             lineHeight: 1.6,
           }}>
@@ -1449,7 +1132,7 @@ export default function App() {
       )}
 
       {showAddModal && (
-        <div 
+        <div
           onClick={() => setShowAddModal(false)}
           style={{
             position: 'fixed', inset: 0,
@@ -1460,7 +1143,7 @@ export default function App() {
             zIndex: 100, padding: '16px',
           }}
         >
-          <div 
+          <div
             onClick={e => e.stopPropagation()}
             style={{
               background: '#fff',
@@ -1471,7 +1154,7 @@ export default function App() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div style={{ fontSize: '17px', fontWeight: 500 }}>銘柄を追加</div>
-              <button 
+              <button
                 onClick={() => setShowAddModal(false)}
                 style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#666' }}
               >×</button>
@@ -1479,13 +1162,13 @@ export default function App() {
             <div style={{ display: 'grid', gap: '16px' }}>
               {['日本投信', '米国ETF', '米国個別株', '債券・REIT'].map(cat => (
                 <div key={cat}>
-                  <div style={{ 
+                  <div style={{
                     fontSize: '11px', color: '#888',
                     letterSpacing: '0.5px', marginBottom: '6px', fontWeight: 500,
                   }}>{cat}</div>
                   <div style={{ display: 'grid', gap: '6px' }}>
                     {Object.entries(PRESETS).filter(([, p]) => p.category === cat).map(([key, p]) => (
-                      <button 
+                      <button
                         key={key}
                         onClick={() => addHolding(key)}
                         style={{
@@ -1516,7 +1199,7 @@ export default function App() {
                   </div>
                 </div>
               ))}
-              <button 
+              <button
                 onClick={addCustom}
                 style={{
                   padding: '12px', background: 'transparent',
@@ -1536,7 +1219,7 @@ export default function App() {
         lineHeight: 1.6, marginTop: '24px',
         paddingTop: '16px', borderTop: '0.5px solid rgba(0,0,0,0.08)',
       }}>
-        ※ 過去平均ベースの試算であり、将来の運用成果を保証するものではありません。税金は銘柄ごとの税率設定(デフォルト20%、NISAなら0%)に基づき、配当は毎年税引き後再投資、売却益は最終年に課税する前提で計算しています。「為替連動」をONにした銘柄は、原資産をドル建てとみなしてドル円変動を反映します(eMAXIS Slim S&P500等、為替ヘッジなし投信は通常ON)。取り崩しモードでは、ポートフォリオ全体の加重平均リターンで運用しつつ年初に引き出す前提で計算しています。
+        ※ 過去平均ベースの試算であり、将来の運用成果を保証するものではありません。税金は銘柄ごとの税率設定(デフォルト20%、NISAなら0%)に基づき、配当は毎年税引き後再投資、売却益は最終年に課税する前提で計算しています。「為替連動」をONにした銘柄は、原資産をドル建てとみなしてドル円変動を反映します。積立期間は銘柄ごとに指定可能で、期間終了後は運用のみ継続します。取り崩しモードでは、ポートフォリオ全体の加重平均リターンで運用しつつ年初に引き出す前提で計算しています。
       </div>
     </div>
   );
