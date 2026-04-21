@@ -125,6 +125,7 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [mode, setMode] = useState('grow');
   const [withdrawMonthly, setWithdrawMonthly] = useState(200000);
+  const [withdrawStartYear, setWithdrawStartYear] = useState(20);
 
   useEffect(() => {
     try {
@@ -145,6 +146,7 @@ export default function App() {
           if (typeof data.displayCurrency === 'string') setDisplayCurrency(data.displayCurrency);
           if (typeof data.mode === 'string') setMode(data.mode);
           if (typeof data.withdrawMonthly === 'number') setWithdrawMonthly(data.withdrawMonthly);
+          if (typeof data.withdrawStartYear === 'number') setWithdrawStartYear(data.withdrawStartYear);
         }
       }
     } catch (e) { /* ignore */ }
@@ -156,11 +158,11 @@ export default function App() {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          holdings, years, inflation, usdJpy, futureUsdJpy, reinvest, showInflationAdjusted, displayCurrency, mode, withdrawMonthly,
+          holdings, years, inflation, usdJpy, futureUsdJpy, reinvest, showInflationAdjusted, displayCurrency, mode, withdrawMonthly, withdrawStartYear,
         }));
       }
     } catch (e) { /* ignore */ }
-  }, [loaded, holdings, years, inflation, usdJpy, futureUsdJpy, reinvest, showInflationAdjusted, displayCurrency, mode, withdrawMonthly]);
+  }, [loaded, holdings, years, inflation, usdJpy, futureUsdJpy, reinvest, showInflationAdjusted, displayCurrency, mode, withdrawMonthly, withdrawStartYear]);
 
   const addHolding = (key) => {
     const preset = PRESETS[key];
@@ -266,6 +268,7 @@ export default function App() {
         data.push(row);
       }
     } else {
+      // 取り崩しモード: 前半は積立期間、後半は取り崩し期間
       const totalInitialJPY = holdings.reduce((sum, h) => {
         const jpy = h.currency === 'USD' ? h.amount * usdJpy : h.amount;
         return sum + jpy;
@@ -278,6 +281,16 @@ export default function App() {
         return sum + (jpy / totalInitialJPY) * rate;
       }, 0) : 0;
 
+      // 月次積立合計(表示通貨ベースをJPY換算)
+      const totalMonthlyJPY = holdings.reduce((sum, h) => {
+        const m = h.monthly || 0;
+        return sum + (h.currency === 'USD' ? m * usdJpy : m);
+      }, 0);
+      // 表示通貨用の月次積立
+      const totalMonthlyInDisplay = displayCurrency === 'JPY' 
+        ? totalMonthlyJPY 
+        : totalMonthlyJPY / usdJpy;
+
       let currentValue = initialTotal;
       const annualWithdraw = withdrawMonthly * 12;
 
@@ -286,22 +299,30 @@ export default function App() {
         const inflationFactor = Math.pow(1 + inflation / 100, y);
         row.total = Math.max(0, Math.round(showInflationAdjusted ? currentValue / inflationFactor : currentValue));
         row.depleted = currentValue <= 0;
+        row.phase = y < withdrawStartYear ? 'accumulating' : 'withdrawing';
         data.push(row);
 
         if (y < years) {
-          const afterWithdraw = Math.max(0, currentValue - annualWithdraw);
-          currentValue = afterWithdraw * (1 + weightedRate);
+          if (y < withdrawStartYear) {
+            // 積立期間: 積立しながら運用
+            const annualContribution = totalMonthlyInDisplay * 12;
+            currentValue = (currentValue + annualContribution) * (1 + weightedRate);
+          } else {
+            // 取り崩し期間: 年初に引き出し、残りを運用
+            const afterWithdraw = Math.max(0, currentValue - annualWithdraw);
+            currentValue = afterWithdraw * (1 + weightedRate);
+          }
         }
       }
     }
     return data;
-  }, [holdings, years, inflation, usdJpy, futureUsdJpy, reinvest, showInflationAdjusted, displayCurrency, mode, withdrawMonthly, initialTotal]);
+  }, [holdings, years, inflation, usdJpy, futureUsdJpy, reinvest, showInflationAdjusted, displayCurrency, mode, withdrawMonthly, withdrawStartYear, initialTotal]);
 
   const depletionYear = useMemo(() => {
     if (mode !== 'withdraw') return null;
-    const found = simulation.find(d => d.total <= 0);
+    const found = simulation.find(d => d.year >= withdrawStartYear && d.total <= 0);
     return found ? found.year : null;
-  }, [simulation, mode]);
+  }, [simulation, mode, withdrawStartYear]);
 
   const summary = useMemo(() => {
     const final = simulation.length > 0 ? simulation[simulation.length - 1].total : 0;
@@ -436,8 +457,9 @@ export default function App() {
 
         {mode === 'withdraw' && (
           <div style={{ marginTop: '8px', fontSize: '14px', color: '#666', lineHeight: 1.6 }}>
-            現在 {formatMoney(summary.initial, true)} から<br />
-            月{formatMoney(withdrawMonthly, true)}(年{formatMoney(withdrawMonthly * 12, true)})を取り崩し
+            {withdrawStartYear > 0 
+              ? '現在 ' + formatMoney(summary.initial, true) + ' から ' + withdrawStartYear + '年積立 → ' + withdrawStartYear + '年後より月' + formatMoney(withdrawMonthly, true) + '取り崩し'
+              : '現在 ' + formatMoney(summary.initial, true) + ' から月' + formatMoney(withdrawMonthly, true) + '(年' + formatMoney(withdrawMonthly * 12, true) + ')を取り崩し'}
           </div>
         )}
 
@@ -452,6 +474,9 @@ export default function App() {
                   </linearGradient>
                 </defs>
                 <Area type="monotone" dataKey="total" stroke={accentColor} strokeWidth={2} fill="url(#mainGradient)" />
+                {mode === 'withdraw' && withdrawStartYear > 0 && withdrawStartYear < years && (
+                  <ReferenceLine x={withdrawStartYear} stroke="#F59E0B" strokeDasharray="2 2" />
+                )}
                 {mode === 'withdraw' && depletionYear && (
                   <ReferenceLine x={depletionYear} stroke="#EF4444" strokeDasharray="3 3" />
                 )}
@@ -474,6 +499,29 @@ export default function App() {
             <Value>{years}年</Value>
           </SliderRow>
         </Card>
+
+        {mode === 'withdraw' && (
+          <Card>
+            <Label>取り崩し開始年</Label>
+            <SliderRow>
+              <input 
+                type="range" 
+                min="0" 
+                max={years} 
+                step="1" 
+                value={Math.min(withdrawStartYear, years)} 
+                onChange={e => setWithdrawStartYear(+e.target.value)} 
+                style={{ flex: 1 }} 
+              />
+              <Value>{withdrawStartYear === 0 ? '今すぐ' : withdrawStartYear + '年後'}</Value>
+            </SliderRow>
+            <div style={{ fontSize: '11px', color: '#666', marginTop: '6px' }}>
+              {withdrawStartYear === 0 
+                ? '開始時点から取り崩し' 
+                : withdrawStartYear + '年間は積立・運用、その後取り崩し開始'}
+            </div>
+          </Card>
+        )}
 
         {mode === 'withdraw' && (
           <Card>
@@ -785,12 +833,25 @@ export default function App() {
         <Card style={{ marginBottom: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 500, margin: '0 0 12px' }}>取り崩しシミュレーション</h3>
           <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.8 }}>
+            {withdrawStartYear > 0 && simulation[withdrawStartYear] && (
+              <Stat 
+                label={withdrawStartYear + '年後(取り崩し開始)の資産'} 
+                value={formatMoney(simulation[withdrawStartYear].total)} 
+                color="#F59E0B"
+              />
+            )}
             <Stat label="年間取り崩し額" value={formatMoney(withdrawMonthly * 12)} />
             <Stat label={depletionYear ? '資産が枯渇する年' : (years + '年後の残高')} 
               value={depletionYear ? (depletionYear + '年目') : formatMoney(summary.final)} 
               color={depletionYear ? '#EF4444' : '#10B981'} 
             />
-            {!depletionYear && initialTotal > 0 && (
+            {!depletionYear && withdrawStartYear > 0 && simulation[withdrawStartYear] && simulation[withdrawStartYear].total > 0 && (
+              <Stat 
+                label="取り崩し開始時の年間率" 
+                value={((withdrawMonthly * 12 / simulation[withdrawStartYear].total) * 100).toFixed(1) + '%'}
+              />
+            )}
+            {!depletionYear && withdrawStartYear === 0 && initialTotal > 0 && (
               <Stat label="年間取り崩しの元本比率(現在)" 
                 value={((withdrawMonthly * 12 / initialTotal) * 100).toFixed(1) + '%'}
               />
