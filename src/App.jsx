@@ -579,15 +579,47 @@ export default function App() {
         )}
 
         {simulation.length > 0 && (
-          <div style={{ height: '140px', marginTop: '20px', marginLeft: '-8px', marginRight: '-8px' }}>
+          <div style={{ height: '160px', marginTop: '20px', marginLeft: '-8px', marginRight: '-8px' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={simulation}>
+              <AreaChart data={simulation} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="mainGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={accentColor} stopOpacity={0.3} />
                     <stop offset="100%" stopColor={accentColor} stopOpacity={0} />
                   </linearGradient>
                 </defs>
+                <XAxis 
+                  dataKey="year" 
+                  tick={{ fontSize: 10, fill: '#888' }}
+                  axisLine={false}
+                  tickLine={false}
+                  ticks={(() => {
+                    const arr = [];
+                    // 現在年齢から5歳刻みで、シミュレーション期間内の年齢を抽出
+                    const startAge = currentAge;
+                    const endAge = currentAge + years;
+                    // 5の倍数の年齢を抽出
+                    const firstTick = Math.ceil(startAge / 5) * 5;
+                    for (let age = firstTick; age <= endAge; age += 5) {
+                      arr.push(age - currentAge);
+                    }
+                    // 始点と終点も確実に含める(ただし近すぎる場合は除外)
+                    if (arr.length === 0 || arr[0] > 1) arr.unshift(0);
+                    if (arr[arr.length - 1] < years - 1) arr.push(years);
+                    return arr;
+                  })()}
+                  tickFormatter={(v) => (currentAge + v) + '歳'}
+                  interval={0}
+                />
+                <Tooltip 
+                  formatter={(v) => formatMoney(v)}
+                  labelFormatter={(l) => (currentAge + l) + '歳 (' + l + '年後)'}
+                  contentStyle={{ 
+                    background: '#fff', 
+                    border: '0.5px solid rgba(0,0,0,0.15)',
+                    borderRadius: '8px', fontSize: '12px',
+                  }}
+                />
                 <Area type="monotone" dataKey="total" stroke={accentColor} strokeWidth={2} fill="url(#mainGradient)" />
                 {mode === 'withdraw' && withdrawStartYear > 0 && withdrawStartYear < years && (
                   <ReferenceLine x={withdrawStartYear} stroke="#F59E0B" strokeDasharray="2 2" />
